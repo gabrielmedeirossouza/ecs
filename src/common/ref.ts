@@ -1,4 +1,4 @@
-export abstract class Ref {
+export class Ref {
   constructor(
     public id: number
   ) {}

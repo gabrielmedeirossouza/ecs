@@ -7,7 +7,7 @@ import { NeedsAuthorization } from "./components/authorization"
 import { UserRef } from "./components/user-ref"
 import { GuardianRef } from "./components/guardian-ref"
 import { Output } from "./io/output"
-import { ResponseRef } from "./components/response-ref"
+import { ResponseRef } from "./components/response"
 
 console.log(World.showOrder())
 
@@ -18,28 +18,60 @@ class ConsoleOutput extends Output {
 }
 
 async function main() {
-    const world = new World()
+    {
+        const world = new World()
 
-    world.provide(new ConsoleOutput())
+        world.provide(new ConsoleOutput())
 
-    const response = world.createEntity("response")
+        const response = world.createEntity("response")
+        response.add(new Response())
 
-    const user = world.createEntity("user")
-    user.add(new PersonName("Gabriel Medeiros Souza"))
-    user.add(new Email("gabriel@mail.com"))
+        const user = world.createEntity("user")
+        user.add(new PersonName("Gabriel Medeiros Souza"))
+        user.add(new Email("gabriel@mailcom"))
+        user.add(new ResponseRef(response.id))
 
-    const guardian = world.createEntity("guardian")
-    guardian.add(new PersonName("Edmar Ap Oliv Medeiros Souza"))
-    guardian.add(new Email("edmar@mail.com"))
+        const guardian = world.createEntity("guardian")
+        guardian.add(new PersonName("Edmar Ap Oliv Medeiros Souza"))
+        guardian.add(new Email("edmar@mailcom"))
+        guardian.add(new ResponseRef(response.id))
 
-    const student = world.createEntity("student")
-    student.add(new NeedsCreateStudent())
-    student.add(new NeedsAuthorization())
-    student.add(new UserRef(user.id))
-    student.add(new GuardianRef(guardian.id))
-    student.add(new ResponseRef(response.id))
+        const request = world.createEntity("request")
+        request.add(new NeedsCreateStudent())
+        request.add(new NeedsAuthorization())
+        request.add(new UserRef(user.id))
+        request.add(new GuardianRef(guardian.id))
+        request.add(new ResponseRef(response.id))
 
-    await world.execute()
+        await world.execute()
+    }
+    {
+        const world = new World()
+
+        world.provide(new ConsoleOutput())
+
+        const response = world.createEntity("response")
+        response.add(new Response())
+
+        const user = world.createEntity("user")
+        user.add(new PersonName("Gabriel Medeiros Souza"))
+        user.add(new Email("gabriel@mailcom"))
+        user.add(new ResponseRef(response.id))
+
+        const guardian = world.createEntity("guardian")
+        guardian.add(new PersonName("Edmar Ap Oliv Medeiros Souza"))
+        guardian.add(new Email("edmar@mailcom"))
+        guardian.add(new ResponseRef(response.id))
+
+        const request = world.createEntity("request")
+        request.add(new NeedsCreateStudent())
+        request.add(new NeedsAuthorization())
+        request.add(new UserRef(user.id))
+        request.add(new GuardianRef(guardian.id))
+        request.add(new ResponseRef(response.id))
+
+        await world.execute()
+    }
 }
 
 main()

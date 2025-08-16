@@ -1,11 +1,14 @@
 import type { Class } from "./utils"
 import type { Component } from "./component"
 import type { Entity } from "./entity"
+import { ExtendsToken } from "./extends-token"
+
+type ReadKey = Class<Component> | ExtendsToken
 
 export class EntityView {
     constructor(
         private readonly entity: Entity,
-        private readonly R: Set<Class<Component>>,
+        private readonly R: Set<ReadKey>,
         private readonly systemName: string,
     ) { }
 

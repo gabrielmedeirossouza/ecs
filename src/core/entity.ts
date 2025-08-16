@@ -7,7 +7,7 @@ export class Entity {
 
     constructor(
         public readonly name: string
-    ) {}
+    ) { }
 
     private components: Map<string, Component> = new Map()
 
@@ -27,12 +27,25 @@ export class Entity {
         return Array.from(this.components.values())
     }
 
+    getAllExtends<T extends Component>(Base: Class<T>): InstanceType<Class<T>>[] {
+        const items: any[] = []
+        for (const c of this.getAll()) {
+            if (c instanceof Base) items.push(c)
+        }
+        return items
+    }
+
     attemptGet<T extends Class<Component>>(componentClass: T): InstanceType<T> | undefined {
         return this.components.get(componentClass.name) as InstanceType<T> | undefined
     }
 
     has(componentClass: Class<Component>): boolean {
         return this.components.has(componentClass.name)
+    }
+
+    hasExtends<T extends Component>(Base: Class<T>): boolean {
+        for (const c of this.getAll()) if (c instanceof Base) return true
+        return false
     }
 
     remove(componentClass: Class<Component>): void {
