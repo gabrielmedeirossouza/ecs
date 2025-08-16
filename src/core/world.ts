@@ -25,8 +25,14 @@ export class Entity {
         return this.components.get(Ctor.name) as any
     }
 
-    has(Ctor: Class<Component>): boolean {
-        return this.components.has(Ctor.name)
+    has<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): boolean {
+        const isExt = isExtendsToken(ClsOrExt)
+        if (isExt) {
+            const Base = (ClsOrExt as ExtendsToken<T>).base
+            return this.existsSomeExtends(Base)
+        } else {
+            return this.components.has(ClsOrExt.name)
+        }
     }
 
     getComponents<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): ReadonlyArray<T> {
@@ -49,6 +55,11 @@ export class Entity {
         const out: any[] = []
         for (const c of this.getAll()) if (c instanceof Base) out.push(c)
         return out
+    }
+
+    existsSomeExtends<T extends Component>(Base: Class<T>): boolean {
+        for (const c of this.getAll()) if (c instanceof Base) return true
+        return false
     }
 
     remove(Ctor: Class<Component>): void {
@@ -120,11 +131,12 @@ export class EntityView {
         return this.entity.attemptGet(cls)
     }
 
-    has(cls: Class<Component>): boolean {
-        if (!this.readSet.has(cls)) {
-            throw new Error(`[QueryDenied] System "${this.systemName}" tentou verificar "${cls.name}" sem @Read.`)
+    has<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): boolean {
+        if (!hasReadPermission(this.readSet, ClsOrExt as ReadKey)) {
+            const isExt = isExtendsToken(ClsOrExt)
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou verificar "${isExt ? ClsOrExt.base.name : ClsOrExt.name}" sem @Read.`)
         }
-        return this.entity.has(cls)
+        return this.entity.has(ClsOrExt)
     }
 
     __unsafeEntity(): Entity { return this.entity }
@@ -185,27 +197,27 @@ export class World {
         return out
     }
 
-    private static registry: System[] = [];
-    private static cachedBatches: System[][] | null = null;
+    private static registry: Class<System>[] = [];
+    private static cachedBatches: Class<System>[][] | null = null;
 
-    static addSystem(...systems: System[]) {
-        this.registry.push(...systems)
+    static addSystem(...systemClasses: Class<System>[]) {
+        this.registry.push(...systemClasses)
         this.cachedBatches = null
     }
 
-    private static resolveBatches(): System[][] {
+    private static resolveBatches(): Class<System>[][] {
         if (this.cachedBatches) return this.cachedBatches
 
-        const systems = [...this.registry]
-        const nameToSys = new Map(systems.map(s => [s.__name!, s]))
-        const R = (s: System) => new Set(s.__read ?? [] as Array<Class<Component>>)
-        const W = (s: System) => new Set(s.__write ?? [] as Array<Class<Component>>)
+        const systemClasses = [...this.registry]
+        const nameToSys = new Map(systemClasses.map(s => [s.name, s]))
+        const R = (s: Class<System>) => new Set<ReadKey>(s.prototype.__read ?? [] as Array<Class<Component>>)
+        const W = (s: Class<System>) => new Set<Class<any>>(s.prototype.__write ?? [] as Array<Class<Component>>)
 
         const edges = new Map<string, Set<string>>()
         const indeg = new Map<string, number>()
-        for (const s of systems) {
-            edges.set(s.__name!, new Set())
-            indeg.set(s.__name!, 0)
+        for (const s of systemClasses) {
+            edges.set(s.name, new Set())
+            indeg.set(s.name, 0)
         }
         const addEdge = (from: string, to: string) => {
             if (from === to) return
@@ -216,10 +228,10 @@ export class World {
             }
         }
 
-        for (let i = 0; i < systems.length; i++) {
-            for (let j = 0; j < systems.length; j++) {
+        for (let i = 0; i < systemClasses.length; i++) {
+            for (let j = 0; j < systemClasses.length; j++) {
                 if (i === j) continue
-                const A = systems[i], B = systems[j]
+                const A = systemClasses[i], B = systemClasses[j]
                 const wA = W(A), rB = R(B), wB = W(B)
 
                 const writeRead = [...wA].some(Cw =>
@@ -232,23 +244,23 @@ export class World {
                 )
 
                 if (writeRead) {
-                    addEdge(A.__name!, B.__name!)
+                    addEdge(A.name, B.name)
                     continue
                 }
 
                 const wwOverlap = [...wA].some(C => wB.has(C) && !isIdempotentWrite(C as any))
                 if (wwOverlap) {
-                    const a = A.__name!, b = B.__name!
+                    const a = A.name, b = B.name
                     const [from, to] = a < b ? [a, b] : [b, a]
                     addEdge(from, to)
                 }
             }
         }
 
-        const batches: System[][] = []
-        const zeroQ = systems
-            .filter(s => (indeg.get(s.__name!) ?? 0) === 0)
-            .map(s => s.__name!)
+        const batches: Class<System>[][] = []
+        const zeroQ = systemClasses
+            .filter(s => (indeg.get(s.name) ?? 0) === 0)
+            .map(s => s.name)
             .sort()
 
         const removed = new Set<string>()
@@ -268,27 +280,27 @@ export class World {
             zeroQ.sort()
         }
 
-        if (removed.size !== systems.length) {
-            throw new Error(describeCycle(systems, edges, R, W))
+        if (removed.size !== systemClasses.length) {
+            throw new Error(describeCycle(systemClasses, edges, R, W))
         }
 
         this.cachedBatches = batches
         return batches
 
         function describeCycle(
-            systems: System[],
+            systemsClass: Class<System>[],
             edges: Map<string, Set<string>>,
-            Rf: (s: System) => Set<ReadKey>,
-            Wf: (s: System) => Set<Class<Component>>,
+            Rf: (s: Class<System>) => Set<ReadKey>,
+            Wf: (s: Class<System>) => Set<Class<Component>>,
         ): string {
-            const nodes = systems.map(s => s.__name!)
+            const nodes = systemsClass.map(s => s.name)
             const cycle = findSmallCycle(nodes, edges)
 
             let details = `Ciclo/empate RW detectado; a ordem é impossível.\n`
             if (cycle.length) {
                 details += `Exemplo: ${cycle.join(" -> ")} -> ${cycle[0]}\n`
 
-                const map = new Map(systems.map(s => [s.__name!, s]))
+                const map = new Map(systemsClass.map(s => [s.name, s]))
                 const reasons: string[] = []
 
                 for (let i = 0; i < cycle.length; i++) {
@@ -299,10 +311,10 @@ export class World {
                     const ww = wwMatches(Wa, Wb) // W(a) → W(b) (não-idempotentes)
 
                     const parts: string[] = []
-                    if (rr.length) parts.push(`W(${a.__name!})→R(${b.__name!}) em {${rr.join(", ")}}`)
-                    if (ww.length) parts.push(`W(${a.__name!})→W(${b.__name!}) em {${ww.join(", ")}}`)
+                    if (rr.length) parts.push(`W(${a.name})→R(${b.name}) em {${rr.join(", ")}}`)
+                    if (ww.length) parts.push(`W(${a.name})→W(${b.name}) em {${ww.join(", ")}}`)
 
-                    reasons.push(`- ${a.__name!} → ${b.__name!}: ${parts.join(" e ") || "motivo não identificado"}`)
+                    reasons.push(`- ${a.name} → ${b.name}: ${parts.join(" e ") || "motivo não identificado"}`)
                 }
                 details += reasons.join("\n")
             }
@@ -363,30 +375,38 @@ export class World {
 
     async execute() {
         const batches = World.resolveBatches()
-        for (const level of batches) {
+
+        // TODO: Resolver essas instâncias em tempo de compilação
+        const batchesInstances = batches.map(level => level.map(systemClass => new systemClass()))
+
+        for (const level of batchesInstances) {
             const buffers = await Promise.all(
                 level.map(async (system) => {
-                    const readSet = new Set(system.__read ?? [])
-                    const buffer = new CommandBuffer(this, new Set(system.__write ?? []), system.__name!)
+                    const readSet = new Set<ReadKey>(system.__read ?? [])
+                    const buffer = new CommandBuffer(this, new Set(system.__write ?? []), system.constructor.name)
 
-                    // Localiza o método de entrada (por padrão “execute”)
-                    // e obtém a where-clause do @Query
                     const methodName = "execute"
                     const where = system.__queryDef?.get(methodName) as Where<ReadKey> | undefined
                     if (!where) {
-                        // Sem @Query no método — nada de view; apenas chame uma vez sem entity?
-                        // Para manter contratos rígidos, exigimos @Query:
-                        throw new Error(`[QueryMissing] System "${system.__name}" precisa declarar @Query no método "${methodName}".`)
+                        throw new Error(`[QueryMissing] System "${system.constructor.name}" precisa declarar @Query no método "${methodName}".`)
                     }
 
-                    // Itera entidades e invoca execute(entity, ctx)
                     const matched = this._match(where)
+                    let matchIndex = -1
                     for (const ent of matched) {
-                        const entityRef = new EntityView(ent, readSet, system.__name!)
+                        matchIndex++
+                        const entityRef = new EntityView(ent, readSet, system.constructor.name)
                         await (system as any)[methodName](entityRef, {
                             buffer,
                             world: this,
                             services: this.serviceManager,
+                            execution: {
+                                hasMultipleMatches: matched.length > 1,
+                                isLastMatch: matchIndex === matched.length - 1,
+                                currentMatch: matchIndex,
+                                totalMatches: matched.length,
+                                matches: matched.map(m => m.name)
+                            }
                         } as SystemContext)
                     }
                     return buffer
@@ -408,6 +428,6 @@ export class World {
 
     static showOrder(): string {
         const batches = this.resolveBatches()
-        return batches.map((lvl, i) => `#${i}: ${lvl.map(s => s.__name!).join(", ")}`).join("\n")
+        return batches.map((lvl, i) => `#${i}: ${lvl.map(s => s.name).join(", ")}`).join("\n")
     }
 }

@@ -1,10 +1,10 @@
-import { ResponseBadRequest, ResponseOk } from "./response"
+import { Ok, BadRequest } from "./response"
 
 export class NeedsCreateStudent { }
-export class StudentCreated {}
+export class StudentCreated extends Ok {}
 export class StudentNotCreatedValidationFailed {}
 
-export class StudentCreatedResponseOk extends ResponseOk {
+export class StudentCreatedOk extends Ok {
     constructor(
         public message: string
     ) {
@@ -12,4 +12,4 @@ export class StudentCreatedResponseOk extends ResponseOk {
     }
 }
 
-export class StudentNotCreatedResponseBadRequest extends ResponseBadRequest {}
+export class StudentNotCreatedBadRequest extends BadRequest {}

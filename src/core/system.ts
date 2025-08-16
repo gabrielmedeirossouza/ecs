@@ -8,11 +8,7 @@ import { EntityView, World } from "./world"
 export type ReadKey = Class<Component> | ExtendsToken
 
 export function System(constructor: { new(...args: any[]): any }) {
-    const instance = new constructor()
-
-    Reflect.set(instance, "__name", constructor.name)
-
-    World.addSystem(instance)
+    World.addSystem(constructor)
 }
 
 type Where<T> = { all?: T[]; any?: T[]; none?: T[] }
@@ -86,10 +82,17 @@ export interface System {
     execute(entity: EntityView, ctx: SystemContext): void | Promise<void>
 }
 
+export interface Execution {
+    readonly hasMultipleMatches: boolean
+    readonly isLastMatch: boolean
+    readonly currentMatch: number
+    readonly totalMatches: number
+    readonly matches: string[]
+}
+
 export type SystemContext = {
     buffer: CommandBuffer
     world: World
     services: ServiceManager
-    deltaTime?: number
-    frame?: number
+    execution: Execution
 }

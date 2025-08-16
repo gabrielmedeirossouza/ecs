@@ -2,8 +2,7 @@ import { RequestedBy } from "@/components/authorization"
 import { Email, InvalidEmail, ValidEmail, EmailEmpty, EmailMalformed, EmailTooLong } from "@/components/email"
 import { GuardianRef } from "@/components/guardian-ref"
 import { InvalidPersonName, PersonName, ValidPersonName } from "@/components/person-name"
-import { ResponseBadRequest } from "@/components/response"
-import { NeedsCreateStudent, StudentCreated, StudentNotCreatedValidationFailed } from "@/components/student"
+import { NeedsCreateStudent, StudentCreated, StudentCreatedOk, StudentNotCreatedValidationFailed } from "@/components/student"
 import { UserRef } from "@/components/user-ref"
 import { Query, Read, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
@@ -15,7 +14,7 @@ export class CreateStudent implements System {
     @Read(PersonName, ValidPersonName, InvalidPersonName)
     @Read(Email, ValidEmail, InvalidEmail)
     @Read(EmailEmpty, EmailMalformed, EmailTooLong)
-    @Write(StudentCreated, StudentNotCreatedValidationFailed, ResponseBadRequest)
+    @Write(StudentCreated, StudentNotCreatedValidationFailed, StudentCreatedOk)
     execute(entity: EntityView, { world, buffer }: SystemContext) {
         const user = world.getEntity(entity.get(UserRef).id)
         const guardian = world.getEntity(entity.get(GuardianRef).id)
@@ -23,7 +22,6 @@ export class CreateStudent implements System {
         const validationFailed = user.has(InvalidEmail) || user.has(InvalidPersonName) || guardian.has(InvalidEmail) || guardian.has(InvalidPersonName)
         if (validationFailed) {
             buffer.add(entity, new StudentNotCreatedValidationFailed())
-            buffer.add(entity, new ResponseBadRequest(entity.name, []))
             return
         }
 

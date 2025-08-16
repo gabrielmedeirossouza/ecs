@@ -1,5 +1,5 @@
 import { TooLong } from "@/common/validation-errors"
-import { ResponseBadRequestData } from "./response"
+import { BadRequest } from "./response"
 
 export class PersonName {
     constructor(
@@ -14,6 +14,6 @@ export class PersonNameEmpty { }
 export class PersonNameTooLong extends TooLong { }
 export class PersonNameMustContainsLastName { }
 
-export class PersonNameEmptyResponseBadRequestData extends ResponseBadRequestData { }
-export class PersonNameTooLongResponseBadRequestData extends ResponseBadRequestData { }
-export class PersonNameMustContainsLastNameResponseBadRequestData extends ResponseBadRequestData { }
+export class PersonNameEmptyBadRequest extends BadRequest { }
+export class PersonNameTooLongBadRequest extends BadRequest { }
+export class PersonNameMustContainsLastNameBadRequest extends BadRequest { }

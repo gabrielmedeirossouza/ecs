@@ -1,5 +1,5 @@
 import { Malformed, TooLong } from "@/common/validation-errors"
-import { ResponseBadRequestData } from "./response"
+import { BadRequest } from "./response"
 
 export class Email {
     constructor(
@@ -14,6 +14,6 @@ export class EmailEmpty { }
 export class EmailMalformed extends Malformed { }
 export class EmailTooLong extends TooLong { }
 
-export class EmailEmptyResponseBadRequestData extends ResponseBadRequestData { }
-export class EmailMalformedResponseBadRequestData extends ResponseBadRequestData { }
-export class EmailTooLongResponseBadRequestData extends ResponseBadRequestData { }
+export class EmailEmptyBadRequest extends BadRequest { }
+export class EmailMalformedBadRequest extends BadRequest { }
+export class EmailTooLongBadRequest extends BadRequest { }

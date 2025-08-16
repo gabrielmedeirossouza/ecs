@@ -7,6 +7,7 @@ export class ValidatePersonName implements System {
     private readonly MAX_LENGTH = 250
 
     @Query(PersonName)
+    @Read(PersonName)
     @Write(ValidPersonName, InvalidPersonName)
     @Write(PersonNameEmpty, PersonNameTooLong, PersonNameMustContainsLastName)
     execute(entity: EntityView, { buffer }: SystemContext) {
@@ -31,5 +32,3 @@ export class ValidatePersonName implements System {
             buffer.add(entity, new ValidPersonName())
     }
 }
-
-console.log(ValidatePersonName.prototype)
