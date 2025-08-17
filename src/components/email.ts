@@ -1,4 +1,4 @@
-import { Malformed, TooLong } from "@/common/validation-errors"
+import { Malformed, TooLong } from "@/common/validation"
 import { BadRequest } from "./response"
 
 export class Email {

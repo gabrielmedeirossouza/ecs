@@ -3,7 +3,7 @@ import { Query, Read, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
 
 @System
-export class ValidateEmailResponse implements System {
+export class InvalidEmailHttpHandle implements System {
     @Query(Email, InvalidEmail)
     @Read(EmailEmpty, EmailMalformed, EmailTooLong)
     @Write(EmailEmptyBadRequest, EmailMalformedBadRequest, EmailTooLongBadRequest)

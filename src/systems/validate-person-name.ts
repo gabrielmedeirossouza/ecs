@@ -1,5 +1,6 @@
+import { ValidationFailed } from "@/common/validation"
 import { InvalidPersonName, PersonName, PersonNameEmpty, PersonNameMustContainsLastName, PersonNameTooLong, ValidPersonName } from "@/components/person-name"
-import { Query, Read, System, SystemContext, Write } from "@/core/system"
+import { Query, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
 
 @System
@@ -7,8 +8,7 @@ export class ValidatePersonName implements System {
     private readonly MAX_LENGTH = 250
 
     @Query(PersonName)
-    @Read(PersonName)
-    @Write(ValidPersonName, InvalidPersonName)
+    @Write(ValidPersonName, InvalidPersonName, ValidationFailed)
     @Write(PersonNameEmpty, PersonNameTooLong, PersonNameMustContainsLastName)
     execute(entity: EntityView, { buffer }: SystemContext) {
         const personName = entity.get(PersonName).value
@@ -26,8 +26,10 @@ export class ValidatePersonName implements System {
         if (notContainsLastName)
             buffer.add(entity, new PersonNameMustContainsLastName())
 
-        if (empty || tooLong || notContainsLastName)
+        if (empty || tooLong || notContainsLastName) {
             buffer.add(entity, new InvalidPersonName())
+            buffer.add(entity, new ValidationFailed())
+        }
         else
             buffer.add(entity, new ValidPersonName())
     }

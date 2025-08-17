@@ -1,4 +1,4 @@
-import { TooLong } from "@/common/validation-errors"
+import { TooLong } from "@/common/validation"
 import { BadRequest } from "./response"
 
 export class PersonName {

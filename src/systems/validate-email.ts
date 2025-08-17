@@ -1,5 +1,6 @@
+import { ValidationFailed } from "@/common/validation"
 import { ValidEmail, InvalidEmail, Email, EmailEmpty, EmailMalformed, EmailTooLong } from "@/components/email"
-import { Query, Read, System, SystemContext, Write } from "@/core/system"
+import { Query, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
 
 @System
@@ -8,8 +9,7 @@ export class ValidateEmail implements System {
     private readonly MAX_LENGTH = 254
 
     @Query(Email)
-    @Read(Email)
-    @Write(ValidEmail, InvalidEmail)
+    @Write(ValidEmail, InvalidEmail, ValidationFailed)
     @Write(EmailEmpty, EmailMalformed, EmailTooLong)
     execute(entity: EntityView, { buffer }: SystemContext) {
         const email = entity.get(Email).value
@@ -27,8 +27,10 @@ export class ValidateEmail implements System {
         if (tooLong)
             buffer.add(entity, new EmailTooLong(email, this.MAX_LENGTH, email.length))
 
-        if (empty || malformed || tooLong)
+        if (empty || malformed || tooLong) {
             buffer.add(entity, new InvalidEmail())
+            buffer.add(entity, new ValidationFailed())
+        }
         else
             buffer.add(entity, new ValidEmail())
     }

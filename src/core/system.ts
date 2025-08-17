@@ -3,7 +3,7 @@ import { Component } from "./component"
 import { ExtendsToken, isExtendsToken } from "./extends-token"
 import { ServiceManager } from "./service-manager"
 import { Class } from "./utils"
-import { EntityView, World } from "./world"
+import { EntityView, World, WorldView } from "./world"
 
 export type ReadKey = Class<Component> | ExtendsToken
 
@@ -92,7 +92,7 @@ export interface Execution {
 
 export type SystemContext = {
     buffer: CommandBuffer
-    world: World
+    world: WorldView
     services: ServiceManager
     execution: Execution
 }

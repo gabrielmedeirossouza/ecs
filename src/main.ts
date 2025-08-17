@@ -19,12 +19,9 @@ class ConsoleOutput extends Output {
 }
 
 async function main() {
-    const world = new World()
-
-    world.provide(new ConsoleOutput())
-
-    const response = world.createEntity("response")
-    response.add(new Response())
+    const world = new World({
+        providers: [new ConsoleOutput()]
+    })
 
     const user = world.createEntity("user")
     user.add(new PersonName("Gabriel Medeiros Souza"))
@@ -41,7 +38,6 @@ async function main() {
     request.add(new GuardianRef(guardian.id))
 
     await world.execute()
-
 }
 
 main()

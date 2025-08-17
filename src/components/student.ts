@@ -1,15 +1,12 @@
-import { Ok, BadRequest } from "./response"
+import { Created } from "./response"
 
 export class NeedsCreateStudent { }
-export class StudentCreated extends Ok {}
-export class StudentNotCreatedValidationFailed {}
+export class CreatedStudent { }
 
-export class StudentCreatedOk extends Ok {
+export class CreatedStudentCreated extends Created {
     constructor(
-        public message: string
+        public id: string
     ) {
         super()
     }
 }
-
-export class StudentNotCreatedBadRequest extends BadRequest {}

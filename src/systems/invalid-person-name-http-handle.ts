@@ -3,7 +3,7 @@ import { Query, Read, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
 
 @System
-export class ValidatePersonNameResponse implements System {
+export class InvalidPersonNameHttpHandle implements System {
     @Query(PersonName, InvalidPersonName)
     @Read(PersonNameEmpty, PersonNameTooLong, PersonNameMustContainsLastName)
     @Write(PersonNameEmptyBadRequest, PersonNameTooLongBadRequest, PersonNameMustContainsLastNameBadRequest)

@@ -1,3 +1,5 @@
+export class ValidationFailed {}
+
 export abstract class Malformed {
   constructor(
     public value: string,
