@@ -3,7 +3,7 @@ import { Email } from "./components/email"
 import { PersonName } from "./components/person-name"
 import { NeedsCreateStudent } from "./components/student"
 import { World } from "./core/world"
-import { NeedsAuthorization } from "./components/authorization"
+import { AuthorizationRef, NeedsAuthorization } from "./components/authorization"
 import { UserRef } from "./components/user-ref"
 import { GuardianRef } from "./components/guardian-ref"
 import { Output } from "./io/output"
@@ -19,9 +19,14 @@ class ConsoleOutput extends Output {
 }
 
 async function main() {
+    console.time("main")
     const world = new World({
         providers: [new ConsoleOutput()]
     })
+
+    const authorization = world.createEntity("authorization")
+    authorization.add(new NeedsAuthorization())
+    // System vai adicionar dinamicamente Authorized ou Unauthorized
 
     const user = world.createEntity("user")
     user.add(new PersonName("Gabriel Medeiros Souza"))
@@ -33,11 +38,12 @@ async function main() {
 
     const request = world.createEntity("request")
     request.add(new NeedsCreateStudent())
-    request.add(new NeedsAuthorization())
+    request.add(new AuthorizationRef(authorization.id))
     request.add(new UserRef(user.id))
     request.add(new GuardianRef(guardian.id))
 
     await world.execute()
+    console.timeEnd("main")
 }
 
 main()

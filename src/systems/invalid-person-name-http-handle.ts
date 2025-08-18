@@ -19,7 +19,7 @@ export class InvalidPersonNameHttpHandle implements System {
         }
 
         if (entity.has(PersonNameTooLong)) {
-            const { maxLength } = entity.get(PersonNameTooLong)
+            const { maxLength } = entity.getRO(PersonNameTooLong)
 
             const error = new PersonNameTooLongBadRequest(
                 entity.name,

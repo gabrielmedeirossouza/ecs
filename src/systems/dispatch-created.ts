@@ -14,7 +14,7 @@ export class DispatchCreated implements System {
             throw new Error(`[ResponseOverride] There are multiple entities with Created responses: "${execution.matches.join("\", \"")}".`)
         }
 
-        const createdComponents = entity.getComponents(ExtendsOf(Created))
+        const createdComponents = entity.getComponentsRO(ExtendsOf(Created))
         if (createdComponents.length > 1) {
             const componentsNames = createdComponents.map(c => c.constructor.name).join("\", \"")
             throw new Error(`[ResponseOverride] There are multiple components with Created response within the same entity "${entity.name}": "${componentsNames}"`)

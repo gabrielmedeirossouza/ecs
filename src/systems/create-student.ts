@@ -1,35 +1,29 @@
 import { ValidationFailed } from "@/common/validation"
-import { RequestedBy } from "@/components/authorization"
+import { AuthorizationRef, Authorized, NeedsAuthorization } from "@/components/authorization"
 import { Email, InvalidEmail, ValidEmail, EmailEmpty, EmailMalformed, EmailTooLong } from "@/components/email"
 import { GuardianRef } from "@/components/guardian-ref"
 import { InvalidPersonName, PersonName, ValidPersonName } from "@/components/person-name"
 import { NeedsCreateStudent, CreatedStudent } from "@/components/student"
 import { UserRef } from "@/components/user-ref"
-import { Query, Read, System, SystemContext, Write } from "@/core/system"
+import { Query, QueryRef, Read, System, SystemContext, Write } from "@/core/system"
 import { EntityView } from "@/core/world"
 
 @System
 export class CreateStudent implements System {
-    @Query(NeedsCreateStudent, UserRef, GuardianRef)
-    @Read(PersonName, Email, ValidationFailed)
+    @Query(NeedsCreateStudent)
+    // @Query(QueryRef(AuthorizationRef, Authorized))
+    @Query(QueryRef(GuardianRef, { none: [ValidationFailed] }))
+    @Query(QueryRef(UserRef, { none: [ValidationFailed] }))
+    @Read(Email, PersonName, ValidationFailed)
     @Write(CreatedStudent)
-    execute(entity: EntityView, { world, buffer }: SystemContext) {
-        const user = world.getEntityByRef(entity, UserRef)
-        const guardian = world.getEntityByRef(entity, GuardianRef)
+    execute(entity: EntityView, { buffer }: SystemContext) {
+        const user = entity.ref(UserRef)
+        const guardian = entity.ref(GuardianRef)
+        // console.log(world.getEntityByRef(entity, AuthorizationRef))
 
-        const validationFailed = user.has(ValidationFailed) || guardian.has(ValidationFailed)
-        if (validationFailed) return
+        // TODO: verificar a mutabilidade da propriedade do componente, se não deveria mudar a ordem de execução dos systems...
+        const userName = user.getRO(PersonName)
 
-        const dto = {
-            user: {
-                name: user.get(PersonName).value,
-                email: user.get(Email).value
-            },
-            guardian: {
-                name: guardian.get(PersonName).value,
-                email: guardian.get(Email)
-            }
-        }
 
         buffer.add(entity, new CreatedStudent())
     }

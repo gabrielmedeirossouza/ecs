@@ -29,7 +29,7 @@ export class InvalidEmailHttpHandle implements System {
         }
 
         if (entity.has(EmailTooLong)) {
-            const { maxLength } = entity.get(EmailTooLong)
+            const { maxLength } = entity.getRO(EmailTooLong)
 
             const error = new EmailTooLongBadRequest(
                 entity.name,

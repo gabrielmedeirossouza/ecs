@@ -11,7 +11,7 @@ export class ValidatePersonName implements System {
     @Write(ValidPersonName, InvalidPersonName, ValidationFailed)
     @Write(PersonNameEmpty, PersonNameTooLong, PersonNameMustContainsLastName)
     execute(entity: EntityView, { buffer }: SystemContext) {
-        const personName = entity.get(PersonName).value
+        const personName = entity.getRO(PersonName).value
 
         const empty = !personName.length
         const tooLong = personName.length >= this.MAX_LENGTH

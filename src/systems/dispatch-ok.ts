@@ -14,7 +14,7 @@ export class DispatchOk implements System {
             throw new Error(`[ResponseOverride] There are multiple entities with Ok responses: "${execution.matches.join("\", \"")}".`)
         }
 
-        const okComponents = entity.getComponents(ExtendsOf(Ok))
+        const okComponents = entity.getComponentsRO(ExtendsOf(Ok))
         if (okComponents.length > 1) {
             const componentsNames = okComponents.map(c => c.constructor.name).join("\", \"")
             throw new Error(`[ResponseOverride] There are multiple components with Ok response within the same entity "${entity.name}": "${componentsNames}"`)

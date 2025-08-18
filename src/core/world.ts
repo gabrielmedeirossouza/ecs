@@ -3,7 +3,7 @@ import { CommandBuffer } from "./command-buffer"
 import { Component } from "./component"
 import { ExtendsToken, isExtendsToken, isSubOrSame } from "./extends-token"
 import { Service, ServiceManager } from "./service-manager"
-import { isIdempotentWrite, ReadKey, System, SystemContext } from "./system"
+import { isIdempotentWrite, QueryKey, ReadKey, RefToken, System, SystemContext, Where } from "./system"
 import { Class } from "./utils"
 
 export class Entity {
@@ -74,54 +74,132 @@ function hasReadPermission(readSet: Set<ReadKey>, key: ReadKey): boolean {
     if (typeof key === "function") {
         if (readSet.has(key)) return true
         for (const rk of readSet) {
+            if (typeof rk === "function" && isSubOrSame(key as any, rk as any)) return true
             if (isExtendsToken(rk) && isSubOrSame(key as any, rk.base as any)) return true
         }
         return false
     }
-
     if (isExtendsToken(key)) {
         for (const rk of readSet) {
             if (isExtendsToken(rk) && rk.base === key.base) return true
         }
         return false
     }
-
     return false
 }
 
+function makeReadonlyDeep<T extends object>(label: string) {
+    const seen = new WeakMap<object, any>()
+    const wrap = (obj: any): any => {
+        if (obj === null || typeof obj !== "object") return obj
+        const cached = seen.get(obj); if (cached) return cached
+        const proxy = new Proxy(obj, {
+            set() { throw new Error(`[WriteDenied] Tentativa de alterar "${label}" sem @Write.`) },
+            defineProperty() { throw new Error(`[WriteDenied] Tentativa de definir prop em "${label}" sem @Write.`) },
+            deleteProperty() { throw new Error(`[WriteDenied] Tentativa de deletar prop em "${label}" sem @Write.`) },
+            setPrototypeOf() { throw new Error(`[WriteDenied] Tentativa de setPrototypeOf em "${label}" sem @Write.`) },
+            get(target, prop, receiver) {
+                const v = Reflect.get(target, prop, receiver)
+                return (v && typeof v === "object") ? wrap(v) : v
+            }
+        })
+        seen.set(obj, proxy)
+        return proxy
+    }
+    return wrap
+}
 
 export class EntityView {
     constructor(
         private readonly entity: Entity,
         private readonly readSet: Set<ReadKey>,
-        private readonly systemName: string
+        private readonly writeSet: Set<Class<Component>>,
+        private readonly systemName: string,
+        private readonly resolveById: (id: number) => EntityView,
     ) { }
 
     get id() { return this.entity.id }
     get name() { return this.entity.name }
 
-    get<T extends Class<Component>>(cls: T): InstanceType<T> {
+    private canWrite<T extends Component>(Ctor: Class<T>) {
+        return this.writeSet.has(Ctor as unknown as Class<Component>)
+    }
+
+    getRO<T extends Class<Component>>(cls: T): Readonly<InstanceType<T>> {
         if (!hasReadPermission(this.readSet, cls)) {
             throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${cls.name}" sem @Read/@Query.`)
+        }
+        const c = this.entity.get(cls) as InstanceType<T>
+        return makeReadonlyDeep(cls.name)(c) as any
+    }
+
+    attemptRO<T extends Class<Component>>(cls: T): Readonly<InstanceType<T>> | undefined {
+        if (!hasReadPermission(this.readSet, cls)) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${cls.name}" sem @Read/@Query.`)
+        }
+        const c = this.entity.attemptGet(cls) as InstanceType<T> | undefined
+        return c ? makeReadonlyDeep(cls.name)(c) as any : undefined
+    }
+
+    getRW<T extends Class<Component>>(cls: T): InstanceType<T> {
+        const canRead = hasReadPermission(this.readSet, cls) || this.canWrite(cls)
+        if (!canRead) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${cls.name}" sem @Read/@Query nem @Write.`)
+        }
+        if (!this.canWrite(cls)) {
+            throw new Error(`[WriteDenied] System "${this.systemName}" tentou escrever "${cls.name}" sem @Write.`)
         }
         return this.entity.get(cls)
     }
 
-    getComponents<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): ReadonlyArray<T> {
-        if (!hasReadPermission(this.readSet, ClsOrExt as ReadKey)) {
-            const label = isExtendsToken(ClsOrExt)
-                ? `Extends<${ClsOrExt.base.name}>`
-                : (ClsOrExt as Class<Component>).name
-            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${label}" sem @Read/@Query.`)
+    attemptRW<T extends Class<Component>>(cls: T): InstanceType<T> | undefined {
+        const canRead = hasReadPermission(this.readSet, cls) || this.canWrite(cls)
+        if (!canRead) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${cls.name}" sem @Read/@Query nem @Write.`)
         }
-        return this.entity.getComponents(ClsOrExt as any) as ReadonlyArray<T>
-    }
-
-    attemptGet<T extends Class<Component>>(cls: T): InstanceType<T> | undefined {
-        if (!hasReadPermission(this.readSet, cls)) {
-            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${cls.name}" sem @Read/@Query.`)
+        if (!this.canWrite(cls)) {
+            throw new Error(`[WriteDenied] System "${this.systemName}" tentou escrever "${cls.name}" sem @Write.`)
         }
         return this.entity.attemptGet(cls)
+    }
+
+    ref(Ref: Class<Ref>): EntityView {
+        if (!hasReadPermission(this.readSet, Ref)) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${Ref.name}" sem @Read/@Query.`)
+        }
+        const r = this.entity.get(Ref) as Ref
+        return this.resolveById(r.id)
+    }
+
+    attemptRef(Ref: Class<Ref>): EntityView | undefined {
+        if (!hasReadPermission(this.readSet, Ref)) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${Ref.name}" sem @Read/@Query.`)
+        }
+        const r = this.entity.attemptGet(Ref) as Ref | undefined
+        return r ? this.resolveById(r.id) : undefined
+    }
+
+    getComponentsRO<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): ReadonlyArray<Readonly<T>> {
+        if (!hasReadPermission(this.readSet, ClsOrExt as ReadKey)) {
+            const label = isExtendsToken(ClsOrExt) ? `Extends<${ClsOrExt.base.name}>` : (ClsOrExt as Class<Component>).name
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${label}" sem @Read/@Query.`)
+        }
+        const arr = this.entity.getComponents(ClsOrExt as any) as T[]
+        return arr.map(c => makeReadonlyDeep((c as any).constructor.name)(c) as Readonly<T>)
+    }
+
+    getComponentsRW<T extends Component>(Cls: Class<T>): ReadonlyArray<T> {
+        if (isExtendsToken(Cls as any)) {
+            throw new Error(`[WriteDenied] getComponentsRW(Extends<...>) não é suportado.`)
+        }
+        const canRead = hasReadPermission(this.readSet, Cls as unknown as ReadKey) || this.canWrite(Cls)
+        if (!canRead) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${Cls.name}" sem @Read/@Query nem @Write.`)
+        }
+        if (!this.canWrite(Cls)) {
+            throw new Error(`[WriteDenied] System "${this.systemName}" tentou escrever "${Cls.name}" sem @Write.`)
+        }
+        return this.entity.getComponents(Cls) as T[]
     }
 
     has<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): boolean {
@@ -135,22 +213,28 @@ export class EntityView {
     __unsafeEntity(): Entity { return this.entity }
 }
 
-type Where<T> = { all?: T[]; any?: T[]; none?: T[] }
-
 export class WorldView {
     constructor(
         private readonly world: World,
         private readonly readSet: Set<ReadKey>,
+        private readonly writeSet: Set<Class<Component>>,
         private readonly systemName: string
     ) { }
 
+    private makeView = (id: number): EntityView =>
+        new EntityView(this.world.getEntity(id), this.readSet, this.writeSet, this.systemName, this.makeView)
+
     getEntity(id: number): EntityView {
-        const ent = this.world.getEntity(id);
-        return new EntityView(ent, this.readSet, this.systemName);
+        return this.makeView(id)
     }
 
-    getEntityByRef(entity: EntityView, ref: Class<Ref>): EntityView {
-        return this.getEntity(entity.get(ref).id)
+    getEntityByRef(owner: EntityView, Ref: Class<Ref>): EntityView {
+        if (!hasReadPermission(this.readSet, Ref)) {
+            throw new Error(`[QueryDenied] System "${this.systemName}" tentou ler "${Ref.name}" sem @Read/@Query.`)
+        }
+
+        const ref = owner.getRO(Ref)
+        return this.makeView(ref.id)
     }
 
     getComponents<T extends Component>(ClsOrExt: Class<T> | ExtendsToken<T>): ReadonlyArray<T> {
@@ -200,23 +284,41 @@ export class World {
         return out
     }
 
-    _match(where: Where<ReadKey>): Entity[] {
+    _match(where: Where<QueryKey>): Entity[] {
         const all = where.all ?? []
         const any = where.any ?? []
         const none = where.none ?? []
 
-        const satisfies = (e: Entity, f: ReadKey) => {
-            if (isExtendsToken(f)) {
-                return e.getAllExtends(f.base as any).length > 0
-            }
+        const satisfiesRead = (e: Entity, f: ReadKey) => {
+            if (isExtendsToken(f)) return e.getAllExtends(f.base as any).length > 0
             return e.has(f as Class<Component>)
         }
 
+        const satisfiesRef = (e: Entity, t: RefToken) => {
+            const ref = e.attemptGet(t.ref as any) as { id: number } | undefined
+            if (!ref) return false
+
+            const target = this._entities.get(ref.id)
+            if (!target) return false
+
+            const w = t.where
+            const aall = w.all ?? [], aany = w.any ?? [], anone = w.none ?? []
+
+            if (aall.length && !aall.every(k => satisfiesRead(target, k))) return false
+            if (aany.length && !aany.some(k => satisfiesRead(target, k))) return false
+            if (anone.length && anone.some(k => satisfiesRead(target, k))) return false
+
+            return true
+        }
+
+        const satisfiesKey = (e: Entity, k: QueryKey) =>
+            (k as any).__kind === "ref" ? satisfiesRef(e, k as RefToken) : satisfiesRead(e, k as ReadKey)
+
         const out: Entity[] = []
         for (const e of this._entities.values()) {
-            if (all.length && !all.every((f) => satisfies(e, f))) continue
-            if (any.length && !any.some((f) => satisfies(e, f))) continue
-            if (none.length && none.some((f) => satisfies(e, f))) continue
+            if (all.length && !all.every((f) => satisfiesKey(e, f))) continue
+            if (any.length && !any.some((f) => satisfiesKey(e, f))) continue
+            if (none.length && none.some((f) => satisfiesKey(e, f))) continue
             out.push(e)
         }
         return out
@@ -407,21 +509,22 @@ export class World {
         for (const level of batchesInstances) {
             const buffers = await Promise.all(
                 level.map(async (system) => {
-                    const readSet = new Set<ReadKey>(system.__read ?? [])
-                    const worldView = new WorldView(this, readSet, system.constructor.name)
-                    const buffer = new CommandBuffer(this, new Set(system.__write ?? []), system.constructor.name)
-
                     const methodName = "execute"
-                    const where = system.__queryDef?.get(methodName) as Where<ReadKey> | undefined
+                    const where = system.__queryDef?.get(methodName) as Where<QueryKey> | undefined
                     if (!where) {
                         throw new Error(`[QueryMissing] System "${system.constructor.name}" precisa declarar @Query no método "${methodName}".`)
                     }
+                    const readSet = new Set<ReadKey>(system.__read ?? [])
+                    const writeSet = new Set<Class<Component>>(system.__write ?? [])
+                    const buffer = new CommandBuffer(this, writeSet, system.constructor.name)
+
 
                     const matched = this._match(where)
                     let matchIndex = -1
+                    const worldView = new WorldView(this, readSet, writeSet, system.constructor.name)
                     for (const ent of matched) {
                         matchIndex++
-                        const entityRef = new EntityView(ent, readSet, system.constructor.name)
+                        const entityRef = worldView.getEntity(ent.id)
                         await (system as any)[methodName](entityRef, {
                             buffer,
                             world: worldView,

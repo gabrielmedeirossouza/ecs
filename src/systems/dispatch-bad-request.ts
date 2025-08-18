@@ -10,10 +10,12 @@ export class DispatchBadRequest implements System {
 
     @Query(ExtendsOf(BadRequest))
     execute(entity: EntityView, { services, execution }: SystemContext) {
-        const errors = entity.getComponents(ExtendsOf(BadRequest))
+        const errors = entity.getComponentsRO(ExtendsOf(BadRequest))
         this.badRequestData.push(...errors)
 
         if (execution.isLastMatch) {
+
+            console.log(execution)
             const output = services.get(Output)
 
             const message = this.badRequestData.length > 1

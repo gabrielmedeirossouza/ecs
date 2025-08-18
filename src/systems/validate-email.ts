@@ -12,7 +12,7 @@ export class ValidateEmail implements System {
     @Write(ValidEmail, InvalidEmail, ValidationFailed)
     @Write(EmailEmpty, EmailMalformed, EmailTooLong)
     execute(entity: EntityView, { buffer }: SystemContext) {
-        const email = entity.get(Email).value
+        const email = entity.getRO(Email).value
 
         const empty = !email.length
         const malformed = !email.match(this.EMAIL_REGEX)
