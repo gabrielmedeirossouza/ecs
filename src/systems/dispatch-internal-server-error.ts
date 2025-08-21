@@ -10,7 +10,7 @@ export class DispatchInternalServerError implements System {
     execute(_: EntityView, { services }: SystemContext) {
         const output = services.get(Output)
 
-        output.send({
+        output.dispatch({
             status: 500,
             data: {
                 code: "internal_server_error",

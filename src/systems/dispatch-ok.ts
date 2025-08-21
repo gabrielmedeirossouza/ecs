@@ -22,7 +22,7 @@ export class DispatchOk implements System {
 
         const okComponent = okComponents[0]
 
-        output.send({
+        output.dispatch({
             status: 200,
             data: okComponent
         })

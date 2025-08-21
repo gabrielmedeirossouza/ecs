@@ -1,9 +1,14 @@
-import { Created } from "./response"
+import { Ok } from "./response"
 
 export class NeedsCreateStudent { }
-export class CreatedStudent { }
 
-export class CreatedStudentCreated extends Created {
+export class StudentCreated {
+    constructor(
+        public id: string
+    ) {}
+}
+
+export class HttpStudentCreated extends Ok {
     constructor(
         public id: string
     ) {

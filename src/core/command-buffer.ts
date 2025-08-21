@@ -12,7 +12,7 @@ export class CommandBuffer {
     _ops: Array<
         | { op: "add"; entity: Entity; component: Component }
         | { op: "remove"; entity: Entity; componentClass: Class<Component> }
-    > = [];
+    > = []
 
     add(entityLike: Entity | EntityView, component: Component) {
         const C = component.constructor as Class<Component>

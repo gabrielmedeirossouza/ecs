@@ -1,7 +1,5 @@
 export class Ok { }
 
-export class Created { }
-
 export class BadRequest {
     constructor(
         public path: string,
@@ -9,5 +7,9 @@ export class BadRequest {
         public message: string
     ) { }
 }
+
+export class Unauthenticated {}
+
+export class Unauthorized {}
 
 export class InternalServerError { }

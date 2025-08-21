@@ -14,15 +14,13 @@ export class DispatchBadRequest implements System {
         this.badRequestData.push(...errors)
 
         if (execution.isLastMatch) {
-
-            console.log(execution)
             const output = services.get(Output)
 
             const message = this.badRequestData.length > 1
                 ? `There are ${this.badRequestData.length} validation errors.`
                 : `There is 1 validation error.`
 
-            output.send({
+            output.dispatch({
                 status: 400,
                 data: {
                     code: "bad_request",
